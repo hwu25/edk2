@@ -1,7 +1,7 @@
 /** @file
 This contains some useful functions for parsing INF files.
 
-Copyright (c) 2004 - 2014, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials                          
 are licensed and made available under the terms and conditions of the BSD License         
 which accompanies this distribution.  The full text of the license may be found at        
@@ -429,17 +429,17 @@ Returns:
   Index = sscanf (
             AsciiGuidBuffer,
             "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-            &Data1,
-            &Data2,
-            &Data3,
-            &Data4[0],
-            &Data4[1],
-            &Data4[2],
-            &Data4[3],
-            &Data4[4],
-            &Data4[5],
-            &Data4[6],
-            &Data4[7]
+            (INT32 *) &Data1,
+            (INT32 *) &Data2,
+            (INT32 *) &Data3,
+            (INT32 *) &Data4[0],
+            (INT32 *) &Data4[1],
+            (INT32 *) &Data4[2],
+            (INT32 *) &Data4[3],
+            (INT32 *) &Data4[4],
+            (INT32 *) &Data4[5],
+            (INT32 *) &Data4[6],
+            (INT32 *) &Data4[7]
             );
 
   //

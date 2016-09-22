@@ -1,7 +1,7 @@
 /** @file
 Generic but simple file parsing routines.
 
-Copyright (c) 2004 - 2014, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials                          
 are licensed and made available under the terms and conditions of the BSD License         
 which accompanies this distribution.  The full text of the license may be found at        
@@ -547,7 +547,7 @@ Returns:
       }
 
       mGlobals.SourceFile.FileBufferPtr += 2;
-      sscanf (mGlobals.SourceFile.FileBufferPtr, "%x", &Val);
+      sscanf (mGlobals.SourceFile.FileBufferPtr, "%x", (INT32 *) &Val);
       *Value = (UINT32) Val;
       while (isxdigit ((int)mGlobals.SourceFile.FileBufferPtr[0])) {
         mGlobals.SourceFile.FileBufferPtr++;
@@ -1305,7 +1305,7 @@ Returns:
       goto Done;
     }
 
-    sscanf (TempString, "%x", &Value32);
+    sscanf (TempString, "%x", (INT32 *) &Value32);
     Value->Data1 = Value32;
     //
     // Next two UINT16 fields
@@ -1320,7 +1320,7 @@ Returns:
       goto Done;
     }
 
-    sscanf (TempString, "%x", &Value32);
+    sscanf (TempString, "%x", (INT32 *) &Value32);
     Value->Data2 = (UINT16) Value32;
 
     if (mGlobals.SourceFile.FileBufferPtr[0] != '-') {
@@ -1333,7 +1333,7 @@ Returns:
       goto Done;
     }
 
-    sscanf (TempString, "%x", &Value32);
+    sscanf (TempString, "%x", (INT32 *) &Value32);
     Value->Data3 = (UINT16) Value32;
     //
     // Parse the "AAAA" as two bytes
@@ -1348,7 +1348,7 @@ Returns:
       goto Done;
     }
 
-    sscanf (TempString, "%x", &Value32);
+    sscanf (TempString, "%x", (INT32 *) &Value32);
     Value->Data4[0] = (UINT8) (Value32 >> 8);
     Value->Data4[1] = (UINT8) Value32;
     if (mGlobals.SourceFile.FileBufferPtr[0] != '-') {
@@ -1393,7 +1393,7 @@ Returns:
       //
       TempString2[0]  = TempString[Index * 2];
       TempString2[1]  = TempString[Index * 2 + 1];
-      sscanf (TempString2, "%x", &Value32);
+      sscanf (TempString2, "%x", (INT32 *) &Value32);
       Value->Data4[Index + 2] = (UINT8) Value32;
     }
 
