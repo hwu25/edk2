@@ -5,7 +5,7 @@
     LzmaUtil.c -- Test application for LZMA compression
     2008-11-23 : Igor Pavlov : Public domain
 
-  Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -333,8 +333,10 @@ int main2(int numArgs, const char *args[], char *rs)
   if (InFile_Open(&inStream.file, inputFile) != 0)
     return PrintError(rs, "Can not open input file");
 
-  if (OutFile_Open(&outStream.file, outputFile) != 0)
+  if (OutFile_Open(&outStream.file, outputFile) != 0) {
+    File_Close(&inStream.file);
     return PrintError(rs, "Can not open output file");
+  }
 
   File_GetLength(&inStream.file, &fileSize);
 
