@@ -908,7 +908,7 @@ Returns:
         FunctionType = 2;
         fgets (Line, MAX_LINE_LEN, PeMapFile);
       } else if (stricmp (KeyWord, "Preferred") ==0) {
-        sscanf (Line + strlen (" Preferred load address is"), "%llx", &TempLongAddress);
+        sscanf (Line + strlen (" Preferred load address is"), "%llx", (long long *) &TempLongAddress);
         LinkTimeBaseAddress = (UINT64) TempLongAddress;
       }
       continue;
@@ -917,14 +917,14 @@ Returns:
     // Printf Function Information
     //
     if (FunctionType == 1) {
-      sscanf (Line, "%s %s %llx %s", KeyWord, FunctionName, &TempLongAddress, FunctionTypeName);
+      sscanf (Line, "%s %s %llx %s", KeyWord, FunctionName, (long long *) &TempLongAddress, FunctionTypeName);
       FunctionAddress = (UINT64) TempLongAddress;
       if (FunctionTypeName [1] == '\0' && (FunctionTypeName [0] == 'f' || FunctionTypeName [0] == 'F')) {
         fprintf (FvMapFile, "  0x%010llx    ", (unsigned long long) (ImageBaseAddress + FunctionAddress - LinkTimeBaseAddress));
         fprintf (FvMapFile, "%s\n", FunctionName);
       }
     } else if (FunctionType == 2) {
-      sscanf (Line, "%s %s %llx %s", KeyWord, FunctionName, &TempLongAddress, FunctionTypeName);
+      sscanf (Line, "%s %s %llx %s", KeyWord, FunctionName, (long long *) &TempLongAddress, FunctionTypeName);
       FunctionAddress = (UINT64) TempLongAddress;
       if (FunctionTypeName [1] == '\0' && (FunctionTypeName [0] == 'f' || FunctionTypeName [0] == 'F')) {
         fprintf (FvMapFile, "  0x%010llx    ", (unsigned long long) (ImageBaseAddress + FunctionAddress - LinkTimeBaseAddress));
