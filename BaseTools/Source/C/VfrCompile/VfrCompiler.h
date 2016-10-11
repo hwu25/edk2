@@ -42,13 +42,13 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 typedef struct {
   CHAR8   VfrFileName[MAX_PATH];
-  CHAR8   RecordListFile[MAX_PATH];
-  CHAR8   PkgOutputFileName[MAX_PATH];
-  CHAR8   COutputFileName[MAX_PATH];
+  CHAR8   *RecordListFile;
+  CHAR8   *PkgOutputFileName;
+  CHAR8   *COutputFileName;
   bool    CreateRecordListFile;
   bool    CreateIfrPkgFile;
   CHAR8   OutputDirectory[MAX_PATH];
-  CHAR8   PreprocessorOutputFileName[MAX_PATH];
+  CHAR8   *PreprocessorOutputFileName;
   CHAR8   VfrBaseFileName[MAX_PATH];  // name of input VFR file with no path or extension
   CHAR8   *IncludePaths;
   bool    SkipCPreprocessor;

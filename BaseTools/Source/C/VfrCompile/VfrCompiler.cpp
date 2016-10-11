@@ -69,13 +69,13 @@ CVfrCompiler::OptionInitialization (
   SetUtilityName ((CHAR8*) PROGRAM_NAME);
 
   mOptions.VfrFileName[0]                = '\0';
-  mOptions.RecordListFile[0]             = '\0';
+  mOptions.RecordListFile                = NULL;
   mOptions.CreateRecordListFile          = FALSE;
   mOptions.CreateIfrPkgFile              = FALSE;
-  mOptions.PkgOutputFileName[0]          = '\0';
-  mOptions.COutputFileName[0]            = '\0';
+  mOptions.PkgOutputFileName             = NULL;
+  mOptions.COutputFileName               = NULL;
   mOptions.OutputDirectory[0]            = '\0';
-  mOptions.PreprocessorOutputFileName[0] = '\0';
+  mOptions.PreprocessorOutputFileName    = NULL;
   mOptions.VfrBaseFileName[0]            = '\0';
   mOptions.IncludePaths                  = NULL;
   mOptions.SkipCPreprocessor             = TRUE;
@@ -119,7 +119,12 @@ CVfrCompiler::OptionInitialization (
         DebugError (NULL, 0, 1001, "Missing option", "-o missing output directory name");
         goto Fail;
       }
-      strcpy (mOptions.OutputDirectory, Argv[Index]);
+      if (strlen (Argv[Index]) > MAX_PATH - 1) {
+        DebugError (NULL, 0, 1003, "Invalid option value", "Output directory name %s is too long", Argv[Index]);
+        goto Fail;
+      }
+      strncpy (mOptions.OutputDirectory, Argv[Index], MAX_PATH - 1);
+      mOptions.OutputDirectory[MAX_PATH - 1] = 0;
       
       CHAR8 lastChar = mOptions.OutputDirectory[strlen(mOptions.OutputDirectory) - 1];
       if ((lastChar != '/') && (lastChar != '\\')) {
@@ -176,7 +181,12 @@ CVfrCompiler::OptionInitialization (
     DebugError (NULL, 0, 1001, "Missing option", "VFR file name is not specified.");
     goto Fail;
   } else {
-    strcpy (mOptions.VfrFileName, Argv[Index]);
+    if (strlen (Argv[Index]) > MAX_PATH) {
+      DebugError (NULL, 0, 1003, "Invalid option value", "VFR file name %s is too long.", Argv[Index]);
+      goto Fail;
+    }
+    strncpy (mOptions.VfrFileName, Argv[Index], MAX_PATH - 1);
+    mOptions.VfrFileName[MAX_PATH - 1] = 0;
   }
 
   if (SetBaseFileName() != 0) {
@@ -200,14 +210,26 @@ Fail:
   SET_RUN_STATUS (STATUS_DEAD);
 
   mOptions.VfrFileName[0]                = '\0';
-  mOptions.RecordListFile[0]             = '\0';
   mOptions.CreateRecordListFile          = FALSE;
   mOptions.CreateIfrPkgFile              = FALSE;
-  mOptions.PkgOutputFileName[0]          = '\0';
-  mOptions.COutputFileName[0]            = '\0';
   mOptions.OutputDirectory[0]            = '\0';
-  mOptions.PreprocessorOutputFileName[0] = '\0';
   mOptions.VfrBaseFileName[0]            = '\0';
+  if (mOptions.PkgOutputFileName != NULL) {
+    free (mOptions.PkgOutputFileName);
+    mOptions.PkgOutputFileName           = NULL;
+  }
+  if (mOptions.COutputFileName != NULL) {
+    free (mOptions.COutputFileName);
+    mOptions.COutputFileName             = NULL;
+  }
+  if (mOptions.PreprocessorOutputFileName != NULL) {
+    free (mOptions.PreprocessorOutputFileName);
+    mOptions.PreprocessorOutputFileName  = NULL;
+  }
+  if (mOptions.RecordListFile != NULL) {
+    free (mOptions.RecordListFile);
+    mOptions.RecordListFile              = NULL;
+  }
   if (mOptions.IncludePaths != NULL) {
     delete mOptions.IncludePaths;
     mOptions.IncludePaths                = NULL;
@@ -304,8 +326,14 @@ CVfrCompiler::SetBaseFileName (
     return -1;
   }
 
-  strncpy (mOptions.VfrBaseFileName, pFileName, pExt - pFileName);
-  mOptions.VfrBaseFileName[pExt - pFileName] = '\0';
+  *pExt = '\0';
+  if (strlen (pFileName) > MAX_PATH - 1) {
+    *pExt = '.';
+    return -1;
+  }
+  strncpy (mOptions.VfrBaseFileName, pFileName, MAX_PATH - 1);
+  mOptions.VfrBaseFileName[MAX_PATH - 1] = '\0';
+  *pExt = '.';
 
   return 0;
 }
@@ -315,7 +343,22 @@ CVfrCompiler::SetPkgOutputFileName (
   VOID
   )
 {
+  INTN Length;
+
   if (mOptions.VfrBaseFileName[0] == '\0') {
+    return -1;
+  }
+
+  Length = strlen (mOptions.OutputDirectory) +
+           strlen (mOptions.VfrBaseFileName) +
+           strlen (VFR_PACKAGE_FILENAME_EXTENSION) +
+           1;
+  if (Length > MAX_PATH) {
+    return -1;
+  }
+
+  mOptions.PkgOutputFileName = (CHAR8 *) malloc (Length);
+  if (mOptions.PkgOutputFileName == NULL) {
     return -1;
   }
 
@@ -331,7 +374,22 @@ CVfrCompiler::SetCOutputFileName (
   VOID
   )
 {
+  INTN Length;
+
   if (mOptions.VfrBaseFileName[0] == '\0') {
+    return -1;
+  }
+
+  Length = strlen (mOptions.OutputDirectory) +
+           strlen (mOptions.VfrBaseFileName) +
+           strlen (".c") +
+           1;
+  if (Length > MAX_PATH) {
+    return -1;
+  }
+
+  mOptions.COutputFileName = (CHAR8 *) malloc (Length);
+  if (mOptions.COutputFileName == NULL) {
     return -1;
   }
 
@@ -347,7 +405,22 @@ CVfrCompiler::SetPreprocessorOutputFileName (
   VOID
   )
 {
+  INTN Length;
+
   if (mOptions.VfrBaseFileName[0] == '\0') {
+    return -1;
+  }
+
+  Length = strlen (mOptions.OutputDirectory) +
+           strlen (mOptions.VfrBaseFileName) +
+           strlen (VFR_PREPROCESS_FILENAME_EXTENSION) +
+           1;
+  if (Length > MAX_PATH) {
+    return -1;
+  }
+
+  mOptions.PreprocessorOutputFileName = (CHAR8 *) malloc (Length);
+  if (mOptions.PreprocessorOutputFileName == NULL) {
     return -1;
   }
 
@@ -363,7 +436,22 @@ CVfrCompiler::SetRecordListFileName (
   VOID
   )
 {
+  INTN Length;
+
   if (mOptions.VfrBaseFileName[0] == '\0') {
+    return -1;
+  }
+
+  Length = strlen (mOptions.OutputDirectory) +
+           strlen (mOptions.VfrBaseFileName) +
+           strlen (VFR_RECORDLIST_FILENAME_EXTENSION) +
+           1;
+  if (Length > MAX_PATH) {
+    return -1;
+  }
+
+  mOptions.RecordListFile = (CHAR8 *) malloc (Length);
+  if (mOptions.RecordListFile == NULL) {
     return -1;
   }
 
@@ -397,6 +485,26 @@ CVfrCompiler::~CVfrCompiler (
   VOID
   )
 {
+  if (mOptions.PkgOutputFileName != NULL) {
+    free (mOptions.PkgOutputFileName);
+    mOptions.PkgOutputFileName = NULL;
+  }
+
+  if (mOptions.COutputFileName != NULL) {
+    free (mOptions.COutputFileName);
+    mOptions.COutputFileName = NULL;
+  }
+
+  if (mOptions.PreprocessorOutputFileName != NULL) {
+    free (mOptions.PreprocessorOutputFileName);
+    mOptions.PreprocessorOutputFileName = NULL;
+  }
+
+  if (mOptions.RecordListFile != NULL) {
+    free (mOptions.RecordListFile);
+    mOptions.RecordListFile = NULL;
+  }
+
   if (mOptions.IncludePaths != NULL) {
     delete mOptions.IncludePaths;
     mOptions.IncludePaths = NULL;
