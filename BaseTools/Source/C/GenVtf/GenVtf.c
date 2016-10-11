@@ -123,8 +123,8 @@ Returns:
     sscanf (
       Str,
       "%02x.%02x",
-      &Major,
-      &Minor
+      (INT32 *) &Major,
+      (INT32 *) &Minor
       );
   } else {
     Length = strlen(Str);
@@ -137,8 +137,8 @@ Returns:
     sscanf (
       TemStr,
       "%02x%02x",
-      &Major,
-      &Minor
+      (INT32 *) &Major,
+      (INT32 *) &Minor
       );
   }
 
