@@ -3198,7 +3198,7 @@ Returns:
     for (; *cptr && isspace((int)*cptr); cptr++) {
     }
     if (isxdigit ((int)*cptr)) {
-      if (sscanf (cptr, "%X", &ScannedData) != 1) {
+      if (sscanf (cptr, "%X", (INT32 *) &ScannedData) != 1) {
         return STATUS_ERROR;
       }
     }
