@@ -2,7 +2,7 @@
   Main file for DmpStore shell Debug1 function.
    
   (C) Copyright 2013-2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2005 - 2016, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2005 - 2017, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -364,7 +364,7 @@ AppendSingleVariableToFile (
   //
   // Crc32
   //
-  gBS->CalculateCrc32 (Buffer, (UINTN) (Ptr - Buffer), (UINT32 *) Ptr);
+  gBS->CalculateCrc32 (Buffer, (UINTN) Ptr - (UINTN) Buffer, (UINT32 *) Ptr);
 
   Status = ShellWriteFile (FileHandle, &BufferSize, Buffer);
   FreePool (Buffer);
