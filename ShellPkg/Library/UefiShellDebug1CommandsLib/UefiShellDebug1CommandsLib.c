@@ -1,7 +1,7 @@
 /** @file
   Main file for NULL named library for debug1 profile shell command functions.
 
-  Copyright (c) 2010 - 2011, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2017, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -193,7 +193,7 @@ HexCharToUintn (
     return Char - L'0';
   }
 
-  return (UINTN) (10 + CharToUpper (Char) - L'A');
+  return (10 + CharToUpper (Char) - L'A');
 }
 
 /**
