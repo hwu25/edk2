@@ -1,7 +1,7 @@
 /** @file
   HII Library implementation that uses DXE protocols and services.
 
-  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2017, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -1853,7 +1853,7 @@ GetBlockDataInfo (
     //
     // Check whether VarBuffer is enough
     //
-    if ((UINTN) (Offset + Width) > MaxBufferSize) {
+    if ((UINT32)Offset + Width > MaxBufferSize) {
       DataBuffer = ReallocatePool (
                     MaxBufferSize,
                     Offset + Width + HII_LIB_DEFAULT_VARSTORE_SIZE,

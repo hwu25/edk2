@@ -1,7 +1,7 @@
 /** @file
   FrontPage routines to handle the callbacks and browser calls
 
-Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2017, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -399,7 +399,7 @@ ConvertProcessorToString (
 
   if (Base10Exponent >= 6) {
     FreqMhz = ProcessorFrequency;
-    for (Index = 0; Index < (UINTN) (Base10Exponent - 6); Index++) {
+    for (Index = 0; Index < (UINT32) Base10Exponent - 6; Index++) {
       FreqMhz *= 10;
     }
   } else {
