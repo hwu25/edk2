@@ -431,6 +431,8 @@
   MdeModulePkg/Library/DxeCapsuleLibFmp/DxeCapsuleLib.inf
   MdeModulePkg/Library/DxeCapsuleLibFmp/DxeRuntimeCapsuleLib.inf
 
+  MdeModulePkg/Application/DumpPartInfo/DumpPartInfo.inf
+
 [Components.IA32, Components.X64, Components.IPF, Components.AARCH64]
   MdeModulePkg/Universal/Network/UefiPxeBcDxe/UefiPxeBcDxe.inf
   MdeModulePkg/Universal/DebugSupportDxe/DebugSupportDxe.inf
