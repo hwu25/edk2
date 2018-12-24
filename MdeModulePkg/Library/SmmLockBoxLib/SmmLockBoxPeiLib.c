@@ -623,7 +623,7 @@ RestoreLockBox (
       LockBoxParameterRestore->Length = (UINT64)*Length;
     }
   }
-  ASSERT_EFI_ERROR (Status);
+  //ASSERT_EFI_ERROR (Status);
 
   if (Length != NULL) {
     *Length = (UINTN)LockBoxParameterRestore->Length;
