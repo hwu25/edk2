@@ -332,4 +332,20 @@ NvmeBuildDevicePath (
   OUT EFI_DEVICE_PATH_PROTOCOL            **DevicePath
   );
 
+/**
+  Determine if a specific NVM Express controller can be skipped for S3 phase.
+
+  @param[in]  HcDevicePath          Device path of the controller.
+  @param[in]  HcDevicePathLength    Length of the device path specified by
+                                    HcDevicePath.
+
+  @retval    The number of ports that need to be enumerated.
+
+**/
+BOOLEAN
+NvmeS3SkipThisController (
+  IN  EFI_DEVICE_PATH_PROTOCOL    *HcDevicePath,
+  IN  UINTN                       HcDevicePathLength
+  );
+
 #endif
