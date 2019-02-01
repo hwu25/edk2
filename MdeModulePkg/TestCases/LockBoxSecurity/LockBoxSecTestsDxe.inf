@@ -1,0 +1,36 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = LockBoxSecTestsDxe
+  FILE_GUID                      = 92A5217F-9D1B-496F-88A2-BE3789823C7D
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = LockBoxSecTestsDxeEntry
+
+#
+#  VALID_ARCHITECTURES           = IA32 X64
+#
+
+[Sources]
+  LockBoxSecTestsCommon.h
+  LockBoxSecTestsDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  DebugLib
+  UefiBootServicesTableLib
+  MemoryAllocationLib
+  BaseMemoryLib
+  LockBoxLib
+  UefiDriverEntryPoint
+
+[Guids]
+  gEfiEndOfDxeEventGroupGuid                    ## CONSUMES ## Event
+  gEfiEventReadyToBootGuid                      ## CONSUMES ## Event
+
+[Protocols]
+
+[Depex]
+  TRUE

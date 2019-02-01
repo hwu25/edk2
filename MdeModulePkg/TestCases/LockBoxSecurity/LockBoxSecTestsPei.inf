@@ -1,0 +1,34 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = LockBoxSecTestsPei
+  FILE_GUID                      = 50E5A124-90A4-4ADA-992A-E84F34176D3B
+  MODULE_TYPE                    = PEIM
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = LockBoxSecTestsPeiEntry
+
+#
+#  VALID_ARCHITECTURES           = IA32 X64
+#
+
+
+[Sources]
+  LockBoxSecTestsCommon.h
+  LockBoxSecTestsPei.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  DebugLib
+  PeiServicesLib
+  MemoryAllocationLib
+  BaseMemoryLib
+  LockBoxLib
+  PeimEntryPoint
+
+[Ppis]
+
+[Depex]
+  gEfiPeiMemoryDiscoveredPpiGuid AND
+  gEfiPeiMasterBootModePpiGuid
