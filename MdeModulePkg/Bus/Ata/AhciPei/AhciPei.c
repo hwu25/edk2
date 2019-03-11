@@ -11,8 +11,20 @@
 #include "AhciPei.h"
 
 EFI_PEI_PPI_DESCRIPTOR  mAhciAtaPassThruPpiListTemplate = {
-  (EFI_PEI_PPI_DESCRIPTOR_PPI | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
+  EFI_PEI_PPI_DESCRIPTOR_PPI,
   &gEdkiiPeiAtaPassThruPpiGuid,
+  NULL
+};
+
+EFI_PEI_PPI_DESCRIPTOR  mAhciBlkIoPpiListTemplate = {
+  EFI_PEI_PPI_DESCRIPTOR_PPI,
+  &gEfiPeiVirtualBlockIoPpiGuid,
+  NULL
+};
+
+EFI_PEI_PPI_DESCRIPTOR  mAhciBlkIo2PpiListTemplate = {
+  (EFI_PEI_PPI_DESCRIPTOR_PPI | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
+  &gEfiPeiVirtualBlockIo2PpiGuid,
   NULL
 };
 
@@ -263,6 +275,27 @@ AtaAhciPeimEntry (
       sizeof (EFI_PEI_PPI_DESCRIPTOR)
       );
     Private->AtaPassThruPpiList.Ppi       = &Private->AtaPassThruPpi;
+
+    Private->BlkIoPpi.GetNumberOfBlockDevices  = AhciBlockIoGetDeviceNo;
+    Private->BlkIoPpi.GetBlockDeviceMediaInfo  = AhciBlockIoGetMediaInfo;
+    Private->BlkIoPpi.ReadBlocks               = AhciBlockIoReadBlocks;
+    CopyMem (
+      &Private->BlkIoPpiList,
+      &mAhciBlkIoPpiListTemplate,
+      sizeof (EFI_PEI_PPI_DESCRIPTOR)
+      );
+    Private->BlkIoPpiList.Ppi                  = &Private->BlkIoPpi;
+
+    Private->BlkIo2Ppi.Revision                = EFI_PEI_RECOVERY_BLOCK_IO2_PPI_REVISION;
+    Private->BlkIo2Ppi.GetNumberOfBlockDevices = AhciBlockIoGetDeviceNo2;
+    Private->BlkIo2Ppi.GetBlockDeviceMediaInfo = AhciBlockIoGetMediaInfo2;
+    Private->BlkIo2Ppi.ReadBlocks              = AhciBlockIoReadBlocks2;
+    CopyMem (
+      &Private->BlkIo2PpiList,
+      &mAhciBlkIo2PpiListTemplate,
+      sizeof (EFI_PEI_PPI_DESCRIPTOR)
+      );
+    Private->BlkIo2PpiList.Ppi                 = &Private->BlkIo2Ppi;
     PeiServicesInstallPpi (&Private->AtaPassThruPpiList);
 
     if (Private->TrustComputingDevices != 0) {
