@@ -55,7 +55,12 @@ UINT8  mAtaTrustCommands[2] = {
 // Look up table (Lba48Bit) for maximum transfer block number
 //
 #define MAX_28BIT_TRANSFER_BLOCK_NUM     0x100
-#define MAX_48BIT_TRANSFER_BLOCK_NUM     0xFFFF
+//
+// Due to limited resource on VTd PEI DMA buffer size, driver limits the
+// maximum transfer block number for 48-bit addressing.
+// Setting to 0x800 here means 1M bytes for device with 512-byte block size.
+//
+#define MAX_48BIT_TRANSFER_BLOCK_NUM     0x800
 
 UINT32 mMaxTransferBlockNumber[2] = {
   MAX_28BIT_TRANSFER_BLOCK_NUM,
