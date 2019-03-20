@@ -1,7 +1,7 @@
 /** @file
   Private data structures
 
-Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2005 - 2019, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -17,13 +17,14 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <PiDxe.h>
 
 #include <Protocol/Cpu.h>
-#include <Protocol/Legacy8259.h>
 #include <Protocol/Timer.h>
 
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
+
+#include "8259Services.h"
 
 //
 // The PCAT 8253/8254 has an input clock at 1.193182 MHz and Timer 0 is

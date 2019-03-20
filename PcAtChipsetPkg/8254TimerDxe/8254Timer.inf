@@ -1,7 +1,11 @@
 ## @file
 # 8254 timer driver that provides Timer Arch protocol.
+# The driver will initialize the 8259 Programmable Interrupt Controller (PIC)
+# to configure the interrupt for the 8254 timer. This is done by directly
+# accessing the 8259 PIC registers. Thus, there is no need to include driver
+# for 8259 PIC separately.
 #
-# Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2005 - 2019, Intel Corporation. All rights reserved.<BR>
 # This program and the accompanying materials
 # are licensed and made available under the terms and conditions of the BSD License
 # which accompanies this distribution.  The full text of the license may be found at
@@ -24,7 +28,6 @@
 
 [Packages]
   MdePkg/MdePkg.dec
-  IntelFrameworkPkg/IntelFrameworkPkg.dec
 
 [LibraryClasses]
   UefiBootServicesTableLib
@@ -34,15 +37,17 @@
   IoLib
 
 [Sources]
+  8259Services.h
+  8259Services.c
   Timer.h
   Timer.c
 
 [Protocols]
   gEfiCpuArchProtocolGuid       ## CONSUMES
-  gEfiLegacy8259ProtocolGuid    ## CONSUMES
   gEfiTimerArchProtocolGuid     ## PRODUCES
 
 [Depex]
-  gEfiCpuArchProtocolGuid AND gEfiLegacy8259ProtocolGuid
+  gEfiCpuArchProtocolGuid
+
 [UserExtensions.TianoCore."ExtraFiles"]
   TimerExtra.uni

@@ -1,7 +1,11 @@
 /** @file
-  Timer Architectural Protocol as defined in the DXE CIS
+  Timer Architectural Protocol as defined in the DXE CIS.
+  The driver will initialize the 8259 Programmable Interrupt Controller (PIC)
+  to configure the interrupt for the 8254 timer. This is done by directly
+  accessing the 8259 PIC registers. Thus, there is no need to include driver
+  for 8259 PIC separately.
 
-Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2005 - 2019, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -33,11 +37,6 @@ EFI_TIMER_ARCH_PROTOCOL   mTimer = {
 // Pointer to the CPU Architectural Protocol instance
 //
 EFI_CPU_ARCH_PROTOCOL     *mCpu;
-
-//
-// Pointer to the Legacy 8259 Protocol instance
-//
-EFI_LEGACY_8259_PROTOCOL  *mLegacy8259;
 
 //
 // The notification function to call on every timer interrupt.
@@ -85,7 +84,7 @@ TimerInterruptHandler (
 
   OriginalTPL = gBS->RaiseTPL (TPL_HIGH_LEVEL);
 
-  mLegacy8259->EndOfInterrupt (mLegacy8259, Efi8259Irq0);
+  Legacy8259EndOfInterrupt (LEGACY_8259_IRQ0);
 
   if (mTimerNotifyFunction != NULL) {
     //
@@ -206,7 +205,7 @@ TimerDriverSetTimerPeriod (
     //
     // Disable timer interrupt for a TimerPeriod of 0
     //
-    mLegacy8259->DisableIrq (mLegacy8259, Efi8259Irq0);
+    Legacy8259DisableIrq0 ();
   } else {
 
     //
@@ -229,7 +228,7 @@ TimerDriverSetTimerPeriod (
     //
     // Enable timer interrupt
     //
-    mLegacy8259->EnableIrq (mLegacy8259, Efi8259Irq0, FALSE);
+    Legacy8259EnableIrq0 ();
   }
   //
   // Save the new timer period
@@ -301,7 +300,7 @@ TimerDriverGenerateSoftInterrupt (
   //
   // If the timer interrupt is enabled, then the registered handler will be invoked.
   //
-  Status = mLegacy8259->GetMask (mLegacy8259, NULL, NULL, &IRQMask, NULL);
+  Status = Legacy8259GetMask (&IRQMask);
   ASSERT_EFI_ERROR (Status);
   if ((IRQMask & 0x1) == 0) {
     //
@@ -362,9 +361,9 @@ TimerDriverInitialize (
   ASSERT_EFI_ERROR (Status);
 
   //
-  // Find the Legacy8259 protocol.
+  // Initialize the 8259 PIC
   //
-  Status = gBS->LocateProtocol (&gEfiLegacy8259ProtocolGuid, NULL, (VOID **) &mLegacy8259);
+  Status = Initialize8259 ();
   ASSERT_EFI_ERROR (Status);
 
   //
@@ -377,7 +376,7 @@ TimerDriverInitialize (
   // Get the interrupt vector number corresponding to IRQ0 from the 8259 driver
   //
   TimerVector = 0;
-  Status      = mLegacy8259->GetVector (mLegacy8259, Efi8259Irq0, (UINT8 *) &TimerVector);
+  Status      = Legacy8259GetIrq0Vector ((UINT8 *) &TimerVector);
   ASSERT_EFI_ERROR (Status);
 
   //
