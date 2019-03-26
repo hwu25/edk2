@@ -676,7 +676,6 @@
   }
 
   MdeModulePkg/Universal/EbcDxe/EbcDxe.inf
-  PcAtChipsetPkg/8259InterruptControllerDxe/8259.inf
   UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
   UefiCpuPkg/CpuDxe/CpuDxe.inf
   PcAtChipsetPkg/8254TimerDxe/8254Timer.inf
@@ -833,6 +832,7 @@
   MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
 
 !ifdef $(CSM_ENABLE)
+  PcAtChipsetPkg/8259InterruptControllerDxe/8259.inf
   IntelFrameworkModulePkg/Csm/BiosThunk/VideoDxe/VideoDxe.inf {
     <LibraryClasses>
       PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
