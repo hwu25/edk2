@@ -1,7 +1,7 @@
 ## @file
 #  Platform BDS customizations library.
 #
-#  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2007 - 2019, Intel Corporation. All rights reserved.<BR>
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 ##
@@ -29,7 +29,6 @@
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
-  IntelFrameworkModulePkg/IntelFrameworkModulePkg.dec
   SourceLevelDebugPkg/SourceLevelDebugPkg.dec
   OvmfPkg/OvmfPkg.dec
   SecurityPkg/SecurityPkg.dec
@@ -60,7 +59,7 @@
   gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashVariablesEnable
   gUefiOvmfPkgTokenSpaceGuid.PcdOvmfHostBridgePciDevId
   gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut
-  gEfiIntelFrameworkModulePkgTokenSpaceGuid.PcdShellFile
+  gUefiOvmfPkgTokenSpaceGuid.PcdShellFile
 
 [Pcd.IA32, Pcd.X64]
   gEfiMdePkgTokenSpaceGuid.PcdFSBClock
