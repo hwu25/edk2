@@ -1263,10 +1263,10 @@ SdMmcHcInitHost (
 **/
 EFI_STATUS
 SdMmcHcUhsSignaling (
-  IN EFI_HANDLE             ControllerHandle,
-  IN EFI_PCI_IO_PROTOCOL    *PciIo,
-  IN UINT8                  Slot,
-  IN SD_MMC_BUS_MODE        Timing
+  IN EFI_HANDLE               ControllerHandle,
+  IN EFI_PCI_IO_PROTOCOL      *PciIo,
+  IN UINT8                    Slot,
+  IN SD_MMC_BUS_MODE          Timing
   )
 {
   EFI_STATUS                 Status;

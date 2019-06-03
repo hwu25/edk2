@@ -313,10 +313,6 @@ SdCardSetRca (
   return Status;
 }
 
-
-
-
-
 /**
   Send command SELECT_DESELECT_CARD to the SD device to select/deselect it.
 
@@ -422,7 +418,7 @@ SdCardSetBusWidth (
   IN EFI_SD_MMC_PASS_THRU_PROTOCOL      *PassThru,
   IN UINT8                              Slot,
   IN UINT16                             Rca,
-  IN UINT8                              BusWidth
+  IN UINT16                             BusWidth
   )
 {
   EFI_SD_MMC_COMMAND_BLOCK              SdMmcCmdBlk;
@@ -476,7 +472,7 @@ SdCardSetBusWidth (
   @param[in]  Slot          The slot number of the SD card to send the command to.
   @param[in]  AccessMode    The value for access mode group.
   @param[in]  CommandSystem The value for command set group.
-  @param[in]  DriveStrength The value for drive length group.
+  @param[in]  DriveStrength The value for driver strength group.
   @param[in]  PowerLimit    The value for power limit group.
   @param[in]  Mode          Switch or check function.
   @param[out] SwitchResp    The return switch function status.
@@ -489,9 +485,9 @@ EFI_STATUS
 SdCardSwitch (
   IN     EFI_SD_MMC_PASS_THRU_PROTOCOL  *PassThru,
   IN     UINT8                          Slot,
-  IN     UINT8                          AccessMode,
+  IN     SD_MMC_BUS_MODE                BusTiming,
   IN     UINT8                          CommandSystem,
-  IN     UINT8                          DriveStrength,
+  IN     SD_DRIVER_STRENGTH_TYPE        DriverStrength,
   IN     UINT8                          PowerLimit,
   IN     BOOLEAN                        Mode,
      OUT UINT8                          *SwitchResp
@@ -502,6 +498,7 @@ SdCardSwitch (
   EFI_SD_MMC_PASS_THRU_COMMAND_PACKET   Packet;
   EFI_STATUS                            Status;
   UINT32                                ModeValue;
+  UINT8                                 AccessMode;
 
   ZeroMem (&SdMmcCmdBlk, sizeof (SdMmcCmdBlk));
   ZeroMem (&SdMmcStatusBlk, sizeof (SdMmcStatusBlk));
@@ -516,8 +513,31 @@ SdCardSwitch (
   SdMmcCmdBlk.ResponseType = SdMmcResponseTypeR1;
 
   ModeValue = Mode ? BIT31 : 0;
-  SdMmcCmdBlk.CommandArgument = (AccessMode & 0xF) | ((PowerLimit & 0xF) << 4) | \
-                                ((DriveStrength & 0xF) << 8) | ((DriveStrength & 0xF) << 12) | \
+
+  switch (BusTiming) {
+    case SdMmcUhsDdr50:
+      AccessMode = 0x4;
+      break;
+    case SdMmcUhsSdr104:
+      AccessMode = 0x3;
+      break;
+    case SdMmcUhsSdr50:
+      AccessMode = 0x2;
+      break;
+    case SdMmcUhsSdr25:
+    case SdMmcSdHs:
+      AccessMode = 0x1;
+      break;
+    case SdMmcUhsSdr12:
+    case SdMmcSdDs:
+      AccessMode = 0;
+      break;
+    default:
+      AccessMode = 0xF;
+  }
+
+  SdMmcCmdBlk.CommandArgument = (AccessMode & 0xF) | ((CommandSystem & 0xF) << 4) | \
+                                ((DriverStrength & 0xF) << 8) | ((PowerLimit & 0xF) << 12) | \
                                 ModeValue;
 
   Packet.InDataBuffer     = SwitchResp;
@@ -718,7 +738,7 @@ SdCardSwitchBusWidth (
   IN EFI_SD_MMC_PASS_THRU_PROTOCOL      *PassThru,
   IN UINT8                              Slot,
   IN UINT16                             Rca,
-  IN UINT8                              BusWidth
+  IN UINT16                             BusWidth
   )
 {
   EFI_STATUS          Status;
@@ -749,6 +769,263 @@ SdCardSwitchBusWidth (
 }
 
 /**
+  Check if passed BusTiming is supported in both controller and card.
+
+  @param[in] Private                  Pointer to controller private data
+  @param[in] SlotIndex                Index of the slot in the controller
+  @param[in] CardSupportedBusTimings  Bitmask indicating which bus timings are supported by card
+  @param[in] IsInUhsI                 Flag indicating if link is in UHS-I
+
+  @retval TRUE  Both card and controller support given BusTiming
+  @retval FALSE Card or controller doesn't support given BusTiming
+**/
+STATIC
+BOOLEAN
+SdIsBusTimingSupported (
+  IN SD_MMC_HC_PRIVATE_DATA   *Private,
+  IN UINT8                    SlotIndex,
+  IN UINT8                    CardSupportedBusTimings,
+  IN BOOLEAN                  IsInUhsI,
+  IN SD_MMC_BUS_MODE          BusTiming
+  )
+{
+  SD_MMC_HC_SLOT_CAP           *Capability;
+
+  Capability = &Private->Capability[SlotIndex];
+
+  if (IsInUhsI) {
+    switch (BusTiming) {
+      case SdMmcUhsSdr104:
+        if (Capability->Sdr104 && ((CardSupportedBusTimings & BIT3) != 0)) {
+          return TRUE;
+        }
+        break;
+      case SdMmcUhsDdr50:
+        if (Capability->Ddr50 && ((CardSupportedBusTimings & BIT4) != 0)) {
+          return TRUE;
+        }
+        break;
+      case SdMmcUhsSdr50:
+        if (Capability->Sdr50 && ((CardSupportedBusTimings & BIT2) != 0)) {
+          return TRUE;
+        }
+        break;
+      case SdMmcUhsSdr25:
+        if ((CardSupportedBusTimings & BIT1) != 0) {
+          return TRUE;
+        }
+        break;
+      case SdMmcUhsSdr12:
+        if ((CardSupportedBusTimings & BIT0) != 0) {
+          return TRUE;
+        }
+      default:
+        break;
+    }
+  } else {
+    switch (BusTiming) {
+      case SdMmcSdHs:
+        if (Capability->HighSpeed && (CardSupportedBusTimings & BIT1) != 0) {
+          return TRUE;
+        }
+        break;
+      case SdMmcSdDs:
+        if ((CardSupportedBusTimings & BIT0) != 0) {
+          return TRUE;
+        }
+      default:
+        break;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+  Get the target bus timing to set on the link. This function
+  will try to select highest bus timing supported by card, controller
+  and the driver.
+
+  @param[in] Private                  Pointer to controller private data
+  @param[in] SlotIndex                Index of the slot in the controller
+  @param[in] CardSupportedBusTimings  Bitmask indicating which bus timings are supported by card
+  @param[in] IsInUhsI                 Flag indicating if link is in UHS-I
+
+  @return  Bus timing value that should be set on link
+**/
+STATIC
+SD_MMC_BUS_MODE
+SdGetTargetBusTiming (
+  IN SD_MMC_HC_PRIVATE_DATA  *Private,
+  IN UINT8                   SlotIndex,
+  IN UINT8                   CardSupportedBusTimings,
+  IN BOOLEAN                 IsInUhsI
+  )
+{
+  SD_MMC_BUS_MODE  BusTiming;
+
+  if (IsInUhsI) {
+    BusTiming = SdMmcUhsSdr104;
+  } else {
+    BusTiming = SdMmcSdHs;
+  }
+
+  while (BusTiming > SdMmcSdDs) {
+    if (SdIsBusTimingSupported (Private, SlotIndex, CardSupportedBusTimings, IsInUhsI, BusTiming)) {
+      break;
+    }
+    BusTiming--;
+  }
+
+  return BusTiming;
+}
+
+/**
+  Get the target bus width to be set on the bus.
+
+  @param[in] Private    Pointer to controller private data
+  @param[in] SlotIndex  Index of the slot in the controller
+  @param[in] BusTiming  Bus timing set on the bus
+
+  @return Bus width to be set on the bus
+**/
+STATIC
+UINT16
+SdGetTargetBusWidth (
+  IN SD_MMC_HC_PRIVATE_DATA   *Private,
+  IN UINT8                    SlotIndex,
+  IN SD_MMC_BUS_MODE          BusTiming
+  )
+{
+  UINT16  BusWidth;
+  UINT16  PreferedBusWidth;
+
+  PreferedBusWidth = Private->Slot[SlotIndex].OperatingParameters.BusWidth;
+
+  if (BusTiming == SdMmcSdDs || BusTiming == SdMmcSdHs) {
+    if (PreferedBusWidth != EDKII_SD_MMC_BUS_WIDTH_IGNORE) {
+      BusWidth = PreferedBusWidth;
+    } else {
+      BusWidth = 4;
+    }
+  } else {
+    //
+    // UHS-I modes support only 4-bit width.
+    // Switch to 4-bit has been done before calling this function anyway so
+    // this is purely informational.
+    //
+    BusWidth = 4;
+  }
+
+  return BusWidth;
+}
+
+/**
+  Get the target clock frequency to be set on the bus.
+
+  @param[in] Private    Pointer to controller private data
+  @param[in] SlotIndex  Index of the slot in the controller
+  @param[in] BusTiming  Bus timing to be set on the bus
+
+  @return Value of the clock frequency to be set on bus in MHz
+**/
+STATIC
+UINT32
+SdGetTargetBusClockFreq (
+  IN SD_MMC_HC_PRIVATE_DATA   *Private,
+  IN UINT8                    SlotIndex,
+  IN SD_MMC_BUS_MODE          BusTiming
+  )
+{
+  UINT32 PreferedClockFreq;
+  UINT32 MaxClockFreq;
+
+  PreferedClockFreq = Private->Slot[SlotIndex].OperatingParameters.ClockFreq;
+
+  switch (BusTiming) {
+    case SdMmcUhsSdr104:
+      MaxClockFreq = 208;
+      break;
+    case SdMmcUhsSdr50:
+      MaxClockFreq = 100;
+      break;
+    case SdMmcUhsDdr50:
+    case SdMmcUhsSdr25:
+    case SdMmcSdHs:
+      MaxClockFreq = 50;
+      break;
+    case SdMmcUhsSdr12:
+    case SdMmcSdDs:
+    default:
+     MaxClockFreq = 25;
+  }
+
+  if (PreferedClockFreq != EDKII_SD_MMC_CLOCK_FREQ_IGNORE && PreferedClockFreq < MaxClockFreq) {
+    return PreferedClockFreq;
+  } else {
+    return MaxClockFreq;
+  }
+}
+
+/**
+  Get the driver strength to be set on bus
+
+  @param[in] Private                       Pointer to controller private data
+  @param[in] SlotIndex                     Index of the slot in the controller
+  @param[in] CardSupportedDriverStrengths  Bitmask indicating which driver strengths are supported on the card
+  @param[in] BusTiming                     Bus timing set on the bus
+
+  @return Value of the driver strength to be set on the bus
+**/
+STATIC
+EDKII_SD_MMC_DRIVER_STRENGTH
+SdGetTargetDriverStrength (
+  IN SD_MMC_HC_PRIVATE_DATA   *Private,
+  IN UINT8                    SlotIndex,
+  IN UINT8                    CardSupportedDriverStrengths,
+  IN SD_MMC_BUS_MODE          BusTiming
+  )
+{
+  EDKII_SD_MMC_DRIVER_STRENGTH  PreferedDriverStrength;
+  EDKII_SD_MMC_DRIVER_STRENGTH  DriverStrength;
+
+  PreferedDriverStrength = Private->Slot[SlotIndex].OperatingParameters.DriverStrength;
+  DriverStrength.Sd = SdDriverStrengthTypeB;
+
+  if (PreferedDriverStrength.Sd != EDKII_SD_MMC_DRIVER_STRENGTH_IGNORE &&
+      (CardSupportedDriverStrengths & (BIT0 << PreferedDriverStrength.Sd))) {
+    DriverStrength.Sd = PreferedDriverStrength.Sd;
+  }
+
+  return DriverStrength;
+}
+
+/**
+  Get the target settings for the bus mode.
+
+  @param[in]  Private          Pointer to controller private data
+  @param[in]  SlotIndex        Index of the slot in the controller
+  @param[in]  SwitchQueryResp  Pointer to switch query response
+  @param[in]  IsInUhsI         Flag indicating if link is in UHS-I mode
+  @param[out] BusMode          Target configuration of the bus
+**/
+STATIC
+VOID
+SdGetTargetBusMode (
+  IN SD_MMC_HC_PRIVATE_DATA  *Private,
+  IN UINT8                   SlotIndex,
+  IN UINT8                   *SwitchQueryResp,
+  IN BOOLEAN                 IsInUhsI,
+  OUT EDKII_SD_MMC_BUS_MODE  *BusMode
+  )
+{
+  BusMode->BusTiming = SdGetTargetBusTiming (Private, SlotIndex, SwitchQueryResp[13], IsInUhsI);
+  BusMode->BusWidth = SdGetTargetBusWidth (Private, SlotIndex, BusMode->BusTiming);
+  BusMode->ClockFreq = SdGetTargetBusClockFreq (Private, SlotIndex, BusMode->BusTiming);
+  BusMode->DriverStrength = SdGetTargetDriverStrength (Private, SlotIndex, SwitchQueryResp[9], BusMode->BusTiming);
+}
+
+/**
   Switch the high speed timing according to request.
 
   Refer to SD Physical Layer Simplified Spec 4.1 Section 4.7 and
@@ -775,13 +1052,10 @@ SdCardSetBusMode (
 {
   EFI_STATUS                   Status;
   SD_MMC_HC_SLOT_CAP           *Capability;
-  UINT32                       ClockFreq;
-  UINT8                        BusWidth;
-  UINT8                        AccessMode;
   UINT8                        HostCtrl1;
   UINT8                        SwitchResp[64];
-  SD_MMC_BUS_MODE              Timing;
   SD_MMC_HC_PRIVATE_DATA       *Private;
+  EDKII_SD_MMC_BUS_MODE        BusMode;
 
   Private = SD_MMC_HC_PRIVATE_FROM_THIS (PassThru);
 
@@ -792,61 +1066,46 @@ SdCardSetBusMode (
     return Status;
   }
 
-  BusWidth = 4;
-
-  Status = SdCardSwitchBusWidth (PciIo, PassThru, Slot, Rca, BusWidth);
-  if (EFI_ERROR (Status)) {
-    return Status;
+  if (S18A) {
+    //
+    // For UHS-I speed modes 4-bit data bus is requiered so we
+    // switch here irrespective of platform preference.
+    //
+    Status = SdCardSwitchBusWidth (PciIo, PassThru, Slot, Rca, 4);
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
   }
+
   //
   // Get the supported bus speed from SWITCH cmd return data group #1.
   //
-  Status = SdCardSwitch (PassThru, Slot, 0xF, 0xF, 0xF, 0xF, FALSE, SwitchResp);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-  //
-  // Calculate supported bus speed/bus width/clock frequency by host and device capability.
-  //
-  ClockFreq = 0;
-  if (S18A && (Capability->Sdr104 != 0) && ((SwitchResp[13] & BIT3) != 0)) {
-    ClockFreq = 208;
-    AccessMode = 3;
-    Timing = SdMmcUhsSdr104;
-  } else if (S18A && (Capability->Sdr50 != 0) && ((SwitchResp[13] & BIT2) != 0)) {
-    ClockFreq = 100;
-    AccessMode = 2;
-    Timing = SdMmcUhsSdr50;
-  } else if (S18A && (Capability->Ddr50 != 0) && ((SwitchResp[13] & BIT4) != 0)) {
-    ClockFreq = 50;
-    AccessMode = 4;
-    Timing = SdMmcUhsDdr50;
-  } else if ((SwitchResp[13] & BIT1) != 0) {
-    ClockFreq = 50;
-    AccessMode = 1;
-    Timing = SdMmcUhsSdr25;
-  } else {
-    ClockFreq = 25;
-    AccessMode = 0;
-    Timing = SdMmcUhsSdr12;
-  }
-
-  Status = SdCardSwitch (PassThru, Slot, AccessMode, 0xF, 0xF, 0xF, TRUE, SwitchResp);
+  Status = SdCardSwitch (PassThru, Slot, 0xFF, 0xF, SdDriverStrengthIgnore, 0xF, FALSE, SwitchResp);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  if ((SwitchResp[16] & 0xF) != AccessMode) {
-    DEBUG ((DEBUG_ERROR, "SdCardSetBusMode: Switch to AccessMode %d ClockFreq %d BusWidth %d fails! The Switch response is 0x%1x\n", AccessMode, ClockFreq, BusWidth, SwitchResp[16] & 0xF));
-    return EFI_DEVICE_ERROR;
+  SdGetTargetBusMode (Private, Slot, SwitchResp, S18A, &BusMode);
+
+  DEBUG ((DEBUG_INFO, "SdCardSetBusMode: Target bus mode: bus timing = %d, bus width = %d, clock freq[MHz] = %d, driver strength = %d\n",
+                         BusMode.BusTiming, BusMode.BusWidth, BusMode.ClockFreq, BusMode.DriverStrength.Sd));
+
+  if (!S18A) {
+    Status = SdCardSwitchBusWidth (PciIo, PassThru, Slot, Rca, BusMode.BusWidth);
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
   }
 
-  DEBUG ((DEBUG_INFO, "SdCardSetBusMode: Switch to AccessMode %d ClockFreq %d BusWidth %d\n", AccessMode, ClockFreq, BusWidth));
+  Status = SdCardSwitch (PassThru, Slot, BusMode.BusTiming, 0xF, BusMode.DriverStrength.Sd, 0xF, TRUE, SwitchResp);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   //
-  // Set to Hight Speed timing
+  // Set to High Speed timing
   //
-  if (AccessMode == 1) {
+  if (BusMode.BusTiming == SdMmcSdHs) {
     HostCtrl1 = BIT2;
     Status = SdMmcHcOrMmio (PciIo, Slot, SD_MMC_HC_HOST_CTRL1, sizeof (HostCtrl1), &HostCtrl1);
     if (EFI_ERROR (Status)) {
@@ -854,12 +1113,12 @@ SdCardSetBusMode (
     }
   }
 
-  Status = SdMmcHcUhsSignaling (Private->ControllerHandle, PciIo, Slot, Timing);
+  Status = SdMmcHcUhsSignaling (Private->ControllerHandle, PciIo, Slot, BusMode.BusTiming);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  Status = SdMmcHcClockSupply (PciIo, Slot, ClockFreq * 1000, Private->BaseClkFreq[Slot], Private->ControllerVersion[Slot]);
+  Status = SdMmcHcClockSupply (PciIo, Slot, BusMode.ClockFreq * 1000, Private->BaseClkFreq[Slot], Private->ControllerVersion[Slot]);
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -869,7 +1128,7 @@ SdCardSetBusMode (
                           Private->ControllerHandle,
                           Slot,
                           EdkiiSdMmcSwitchClockFreqPost,
-                          &Timing
+                          &BusMode.BusTiming
                           );
     if (EFI_ERROR (Status)) {
       DEBUG ((
@@ -882,7 +1141,7 @@ SdCardSetBusMode (
     }
   }
 
-  if ((AccessMode == 3) || ((AccessMode == 2) && (Capability->TuningSDR50 != 0))) {
+  if ((BusMode.BusTiming == SdMmcUhsSdr104) || ((BusMode.BusTiming == SdMmcUhsSdr50) && (Capability->TuningSDR50 != 0))) {
     Status = SdCardTuningClock (PciIo, PassThru, Slot);
     if (EFI_ERROR (Status)) {
       return Status;
@@ -1025,10 +1284,8 @@ SdCardIdentification (
   //    (One of support bits is set to 1: SDR50, SDR104 or DDR50 in the
   //    Capabilities register), switch its voltage to 1.8V.
   //
-  if ((Private->Capability[Slot].Sdr50 != 0 ||
-       Private->Capability[Slot].Sdr104 != 0 ||
-       Private->Capability[Slot].Ddr50 != 0) &&
-       ((Ocr & BIT24) != 0)) {
+  if ((Private->Capability[Slot].Sdr50 || Private->Capability[Slot].Ddr50 || Private->Capability[Slot].Sdr104) &&
+      ((Ocr & BIT24) != 0)) {
     Status = SdCardVoltageSwitch (PassThru, Slot);
     if (EFI_ERROR (Status)) {
       DEBUG ((DEBUG_ERROR, "SdCardIdentification: Executing SdCardVoltageSwitch fails with %r\n", Status));
