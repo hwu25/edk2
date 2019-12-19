@@ -331,3 +331,238 @@ Done:
        MicroData [0x%08x], Revision [0x%08x]\n", Eax.Uint32, ProcessorFlags, (UINTN) MicrocodeData, LatestRevision));
   }
 }
+
+/**
+  Actual worker function that loads the required microcode patches into memory.
+
+  @param[in, out]  CpuMpData          The pointer to CPU MP Data structure.
+  @param[in]       PatchInfoBuffer    The pointer to an array of information on
+                                      the microcode patches that will be loaded
+                                      into memory.
+  @param[in]       PatchNumber        The number of microcode patches that will
+                                      be loaded into memory.
+  @param[in]       TotalLoadSize      The total size of all the microcode
+                                      patches to be loaded.
+**/
+VOID
+LoadMicrocodePatchWorker (
+  IN OUT CPU_MP_DATA             *CpuMpData,
+  IN     MICROCODE_PATCH_INFO    *PatchInfoBuffer,
+  IN     UINTN                   PatchNumber,
+  IN     UINTN                   TotalLoadSize
+  )
+{
+  UINTN    Index;
+  VOID     *MicrocodePatchInRam;
+  UINT8    *Walker;
+
+  ASSERT ((PatchInfoBuffer != NULL) && (PatchNumber != 0));
+
+  MicrocodePatchInRam = AllocatePages (EFI_SIZE_TO_PAGES (TotalLoadSize));
+  if (MicrocodePatchInRam == NULL) {
+    return;
+  }
+
+  //
+  // Load all the required microcode patches into memory
+  //
+  for (Walker = MicrocodePatchInRam, Index = 0; Index < PatchNumber; Index++) {
+    CopyMem (
+      Walker,
+      (VOID *) PatchInfoBuffer[Index].Address,
+      PatchInfoBuffer[Index].Size
+      );
+
+    if (PatchInfoBuffer[Index].AlignedSize > PatchInfoBuffer[Index].Size) {
+      //
+      // Zero-fill the padding area
+      //
+      ZeroMem (
+        Walker + PatchInfoBuffer[Index].Size,
+        PatchInfoBuffer[Index].AlignedSize - PatchInfoBuffer[Index].Size
+        );
+    }
+
+    Walker += PatchInfoBuffer[Index].AlignedSize;
+  }
+
+  //
+  // Update the microcode patch related fields in CpuMpData
+  //
+  CpuMpData->MicrocodePatchAddress    = (UINTN) MicrocodePatchInRam;
+  CpuMpData->MicrocodePatchRegionSize = TotalLoadSize;
+
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: Required microcode patches have been loaded at 0x%lx, with size 0x%lx.\n",
+    __FUNCTION__, CpuMpData->MicrocodePatchAddress, CpuMpData->MicrocodePatchRegionSize
+    ));
+
+  return;
+}
+
+/**
+  Load the required microcode patches data into memory.
+
+  @param[in, out]  CpuMpData    The pointer to CPU MP Data structure.
+**/
+VOID
+LoadMicrocodePatch (
+  IN OUT CPU_MP_DATA             *CpuMpData
+  )
+{
+  CPU_MICROCODE_HEADER    *MicrocodeEntryPoint;
+  UINTN                   MicrocodeEnd;
+  UINTN                   DataSize;
+  UINTN                   TotalSize;
+  MICROCODE_PATCH_INFO    *PatchInfoBuffer;
+  UINTN                   MaxPatchNumber;
+  UINTN                   PatchNumber;
+  UINTN                   TotalLoadSize;
+  UINT32                  ProcessorSignature;
+  UINT32                  ProcessorFlags;
+  UINTN                   Index;
+  CPU_AP_DATA             *CpuData;
+  BOOLEAN                 NeedLoad;
+
+  //
+  // Initialize the microcode patch related fields in CpuMpData as the values
+  // specified by the PCD pair. If the microcode patches are loaded into memory,
+  // these fields will be updated.
+  //
+  CpuMpData->MicrocodePatchAddress    = PcdGet64 (PcdCpuMicrocodePatchAddress);
+  CpuMpData->MicrocodePatchRegionSize = PcdGet64 (PcdCpuMicrocodePatchRegionSize);
+
+  MicrocodeEntryPoint    = (CPU_MICROCODE_HEADER *) (UINTN) CpuMpData->MicrocodePatchAddress;
+  MicrocodeEnd           = (UINTN) MicrocodeEntryPoint +
+                           (UINTN) CpuMpData->MicrocodePatchRegionSize;
+  if ((MicrocodeEntryPoint == NULL) || ((UINTN) MicrocodeEntryPoint == MicrocodeEnd)) {
+    //
+    // There is no microcode patches
+    //
+    return;
+  }
+
+  PatchNumber     = 0;
+  MaxPatchNumber  = DEFAULT_MAX_MICROCODE_PATCH_NUM;
+  TotalLoadSize   = 0;
+  PatchInfoBuffer = AllocatePool (MaxPatchNumber * sizeof (MICROCODE_PATCH_INFO));
+  if (PatchInfoBuffer == NULL) {
+    return;
+  }
+
+  //
+  // Process the header of each microcode patch within the region.
+  // The purpose is to decide which microcode patch(es) will be loaded into memory.
+  //
+  do {
+    if (MicrocodeEntryPoint->HeaderVersion != 0x1) {
+      //
+      // Padding data between the microcode patches, skip 1KB to check next entry.
+      //
+      MicrocodeEntryPoint = (CPU_MICROCODE_HEADER *) (((UINTN) MicrocodeEntryPoint) + SIZE_1KB);
+      continue;
+    }
+
+    DataSize = MicrocodeEntryPoint->DataSize;
+    if (DataSize == 0) {
+      TotalSize = sizeof (CPU_MICROCODE_HEADER) + 2000;
+    } else {
+      TotalSize = sizeof (CPU_MICROCODE_HEADER) + DataSize;
+    }
+
+    if ( (UINTN)MicrocodeEntryPoint > (MAX_ADDRESS - TotalSize) ||
+         ((UINTN)MicrocodeEntryPoint + TotalSize) > MicrocodeEnd ||
+         (TotalSize & 0x3) != 0
+       ) {
+      //
+      // Not a valid microcode header, skip 1KB to check next entry.
+      //
+      MicrocodeEntryPoint = (CPU_MICROCODE_HEADER *) (((UINTN) MicrocodeEntryPoint) + SIZE_1KB);
+      continue;
+    }
+
+    TotalSize = (DataSize == 0) ? 2048 : MicrocodeEntryPoint->TotalSize;
+
+    //
+    // Check the 'ProcessorSignature' & 'ProcessorFlags' of this microcode patch
+    // with the processors' CPUID & PlatformID to decide if it will be copied
+    // into memory
+    //
+    ProcessorSignature = MicrocodeEntryPoint->ProcessorSignature.Uint32;
+    ProcessorFlags     = MicrocodeEntryPoint->ProcessorFlags;
+    NeedLoad           = FALSE;
+    for (Index = 0; Index < CpuMpData->CpuCount; Index++) {
+      CpuData = &CpuMpData->CpuData[Index];
+      if ((ProcessorSignature == CpuData->ProcessorSignature) &&
+          (ProcessorFlags & (1 << CpuData->PlatformId)) != 0) {
+        NeedLoad = TRUE;
+        break;
+      }
+    }
+
+    if (NeedLoad) {
+      PatchNumber++;
+      if (PatchNumber >= MaxPatchNumber) {
+        //
+        // Current 'PatchInfoBuffer' cannot hold the information, double the size
+        // and allocate a new buffer.
+        //
+        if (MaxPatchNumber > MAX_UINTN / 2 / sizeof (MICROCODE_PATCH_INFO)) {
+          //
+          // Overflow check for MaxPatchNumber
+          //
+          goto OnExit;
+        }
+
+        PatchInfoBuffer = ReallocatePool (
+                            MaxPatchNumber * sizeof (MICROCODE_PATCH_INFO),
+                            2 * MaxPatchNumber * sizeof (MICROCODE_PATCH_INFO),
+                            PatchInfoBuffer
+                            );
+        if (PatchInfoBuffer == NULL) {
+          goto OnExit;
+        }
+        MaxPatchNumber = MaxPatchNumber * 2;
+      }
+
+      //
+      // Store the information of this microcode patch
+      //
+      if (TotalSize > MAX_UINTN - TotalLoadSize ||
+          ALIGN_VALUE (TotalSize, SIZE_1KB) > MAX_UINTN - TotalLoadSize) {
+        goto OnExit;
+      }
+      PatchInfoBuffer[PatchNumber - 1].Address     = (UINTN) MicrocodeEntryPoint;
+      PatchInfoBuffer[PatchNumber - 1].Size        = TotalSize;
+      PatchInfoBuffer[PatchNumber - 1].AlignedSize = ALIGN_VALUE (TotalSize, SIZE_1KB);
+      TotalLoadSize += PatchInfoBuffer[PatchNumber - 1].AlignedSize;
+    }
+
+    //
+    // Process the next microcode patch
+    //
+    MicrocodeEntryPoint = (CPU_MICROCODE_HEADER *) (((UINTN) MicrocodeEntryPoint) + TotalSize);
+  } while (((UINTN) MicrocodeEntryPoint < MicrocodeEnd));
+
+  if (PatchNumber == 0) {
+    //
+    // No patch needs to be loaded
+    //
+    goto OnExit;
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: 0x%x microcode patches will be loaded into memory, with size 0x%x.\n",
+    __FUNCTION__, PatchNumber, TotalLoadSize
+    ));
+
+  LoadMicrocodePatchWorker (CpuMpData, PatchInfoBuffer, PatchNumber, TotalLoadSize);
+
+OnExit:
+  if (PatchInfoBuffer != NULL) {
+    FreePool (PatchInfoBuffer);
+  }
+  return;
+}
